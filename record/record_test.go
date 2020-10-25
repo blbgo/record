@@ -6,8 +6,8 @@ import (
 
 	"github.com/blbgo/general"
 
-	"github.com/blbergwall/assert"
 	"github.com/blbgo/record/store"
+	"github.com/blbgo/testing/assert"
 )
 
 func TestOpenAndCloseDb(t *testing.T) {
