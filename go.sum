@@ -4,8 +4,6 @@ github.com/DataDog/zstd v1.4.1/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
-github.com/blbergwall/assert v0.0.0-20201018153802-ec1ae5fcaf18 h1:cAFk+4m3KzrlvLqS2tglemXlk6VOyvqNdedWBgAFkhI=
-github.com/blbergwall/assert v0.0.0-20201018153802-ec1ae5fcaf18/go.mod h1:EzzGSTdOIMCoCeH7ojR5A6SaSa6eMMfXdKBpP8yJjWM=
 github.com/blbgo/general v0.1.0 h1:H8RPRLgqqc2OHCY1BK7yAzRTy2j3qM3YsnqqVITiHB4=
 github.com/blbgo/general v0.1.0/go.mod h1:A2ZPvWZlUUTB50b1nG7iRsLYFYBazkLFAnC2UzEzZU8=
 github.com/blbgo/testing v0.1.0 h1:8zks6K0Wm88cYz3LkWzpgUp/9BUrJ5uwtlDeUxKhRns=
