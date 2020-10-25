@@ -34,12 +34,14 @@ type RecordLog interface {
 }
 
 var minTime = time.Unix(0, 0).UTC()
-// MinTime returns the zero or minimum time 
+
+// MinTime returns the zero or minimum time
 func MinTime() time.Time {
 	return minTime
 }
 
 var maxTime = time.Unix(1<<63-62135596801, 999999999).UTC()
+
 // MaxTime returns the maximum time in go
 func MaxTime() time.Time {
 	return maxTime
@@ -47,14 +49,14 @@ func MaxTime() time.Time {
 
 type recordLog struct {
 	recorderDB record.RecorderDB
-	mutex sync.Mutex
-	lastTime time.Time
-	counter byte
+	mutex      sync.Mutex
+	lastTime   time.Time
+	counter    byte
 }
 
 // New creates a RecordLog
 func New(recorderDB record.RecorderDB) RecordLog {
-	return &recordLog{ recorderDB: recorderDB }
+	return &recordLog{recorderDB: recorderDB}
 
 }
 
@@ -68,8 +70,8 @@ func NewRecords() (record.Record, record.Record) {
 func (r *recordLog) New(name string) (general.Logger, error) {
 	newLog := &log{
 		recorderDB: r.recorderDB,
-		created: r.makeLogKey(),
-		LogName: name,
+		created:    r.makeLogKey(),
+		LogName:    name,
 	}
 	err := r.recorderDB.Write(newLog)
 	if err != nil {
@@ -79,7 +81,7 @@ func (r *recordLog) New(name string) (general.Logger, error) {
 }
 
 func (r *recordLog) Open(created time.Time) (general.Logger, error) {
-	openLog := &log{ created: created }
+	openLog := &log{created: created}
 	err := r.recorderDB.Read(openLog)
 	if err != nil {
 		return nil, err
@@ -99,7 +101,7 @@ func (r *recordLog) SetTTL(generalLog general.Logger, ttl time.Duration) error {
 
 func (r *recordLog) Delete(created time.Time) error {
 	// verify a log with the specified time exists
-	deleteLog := &log{ created: created }
+	deleteLog := &log{created: created}
 	err := r.recorderDB.Read(deleteLog)
 	if err != nil {
 		return err
@@ -125,7 +127,7 @@ func (r *recordLog) Range(
 	reverse bool,
 	cb func(created time.Time, name string) bool,
 ) error {
-	rangeLog := &log{ created: start }
+	rangeLog := &log{created: start}
 
 	return r.recorderDB.Range(
 		rangeLog,
@@ -137,13 +139,13 @@ func (r *recordLog) Range(
 	)
 }
 
-func (r *recordLog) 	RangeLog(
+func (r *recordLog) RangeLog(
 	logCreated time.Time,
 	start time.Time,
 	reverse bool,
 	cb func(created time.Time, message string) bool,
 ) error {
-	rangeLogEntry := &logEntry{ logKey: logCreated, entryKey: start }
+	rangeLogEntry := &logEntry{logKey: logCreated, entryKey: start}
 	return r.recorderDB.Range(
 		rangeLogEntry,
 		record.TimeBytesLength,
@@ -154,7 +156,6 @@ func (r *recordLog) 	RangeLog(
 	)
 }
 
-
 // **************** helpers
 
 func (r *recordLog) makeLogKey() time.Time {
@@ -163,7 +164,7 @@ func (r *recordLog) makeLogKey() time.Time {
 	t := time.Now().UTC()
 	if t == r.lastTime {
 		r.counter++
-		return time.Unix(t.Unix(), int64(t.Nanosecond()) + int64(r.counter))
+		return time.Unix(t.Unix(), int64(t.Nanosecond())+int64(r.counter))
 	}
 	r.lastTime = t
 	r.counter = 0

@@ -18,7 +18,7 @@ func TestLogWrittingAndReading(t *testing.T) {
 
 	a.NoError(lgrNew.Log("log message after new"))
 
-	time.Sleep(time.Millisecond*10)
+	time.Sleep(time.Millisecond * 10)
 
 	count := 0
 	var createdSave time.Time
@@ -39,8 +39,8 @@ func TestLogWrittingAndReading(t *testing.T) {
 
 	a.NoError(lgrOpen.Log("log message after open"))
 
-	time.Sleep(time.Millisecond*10)
-	
+	time.Sleep(time.Millisecond * 10)
+
 	count = 0
 	err = rl.RangeLog(
 		createdSave,

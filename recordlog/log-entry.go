@@ -9,7 +9,7 @@ import (
 type logEntry struct {
 	ttl time.Duration
 
-	logKey time.Time
+	logKey   time.Time
 	entryKey time.Time
 
 	Message string
@@ -32,7 +32,7 @@ func (r *logEntry) SetKey(data []byte) error {
 	if err != nil {
 		return err
 	}
-	
+
 	entryKey, err := record.BytesToTime(data[12:])
 	if err != nil {
 		return err

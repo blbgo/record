@@ -10,7 +10,7 @@ type testRecord struct {
 	KeyField time.Time `json:"-"`
 
 	FirstName string
-	Age int
+	Age       int
 }
 
 var testRecordName = "tre"
