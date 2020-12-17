@@ -1,22 +1,23 @@
 package store
 
 import (
-	"io"
 	"testing"
+	"time"
 
 	badger "github.com/dgraph-io/badger/v2"
 
+	"github.com/blbgo/general"
 	"github.com/blbgo/testing/assert"
 )
 
 func TestOpenAndCloseDb(t *testing.T) {
 	a := assert.New(t)
 
-	dbFac, err := New(NewConfigInMem())
+	store, err := New(NewConfigInMem())
 	a.NoError(err)
-	a.NotNil(dbFac)
+	a.NotNil(store)
 
-	db := dbFac.BadgerDB()
+	db := store.BadgerDB()
 	a.NotNil(db)
 
 	err = db.Update(func(txn *badger.Txn) error {
@@ -39,7 +40,30 @@ func TestOpenAndCloseDb(t *testing.T) {
 	})
 	a.Equal("xyz", value)
 
-	c, ok := dbFac.(io.Closer)
+	seq, err := store.GetSequence([]byte("seqtest"))
+	num, err := seq.Next()
+	a.NoError(err)
+	a.Equal(uint64(0), num)
+
+	store.WriteBuffered(badger.NewEntry([]byte("123"), []byte("456")))
+	time.Sleep(2 * time.Second)
+	err = db.View(func(txn *badger.Txn) error {
+		item, err = txn.Get([]byte("123"))
+		return err
+	})
+	a.NoError(err)
+	a.NotNil(item)
+	a.Equal("123", string(item.Key()))
+	value = ""
+	item.Value(func(val []byte) error {
+		value = string(val)
+		return nil
+	})
+	a.Equal("456", value)
+
+	c, ok := store.(general.DelayCloser)
 	a.True(ok)
-	c.Close()
+	doneChan := make(chan error, 100)
+	c.Close(doneChan)
+	a.Nil(<-doneChan)
 }

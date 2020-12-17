@@ -9,7 +9,7 @@ import (
 )
 
 // RecorderTxn is an interface to a transaction created by RecorderDB.NewTransaction.  Discard or
-// Commit must be called to end teh transaction.  There is no harm in calling Discard after Commit
+// Commit must be called to end the transaction.  There is no harm in calling Discard after Commit
 // so a good pattern is to defer Discard() right after RecorderDB.NewTransaction
 type RecorderTxn interface {
 	Recorder

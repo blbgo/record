@@ -33,11 +33,6 @@ type Recorder interface {
 	Range(record Record, prefixBytes int, reverse bool, cb func(record Record) bool) error
 }
 
-// Sequence provides a way to get ever incressing numbers
-type Sequence interface {
-	Next() (uint64, error)
-}
-
 // RecorderDB is an interface to a base database
 type RecorderDB interface {
 	Recorder
@@ -49,7 +44,7 @@ type RecorderDB interface {
 
 	DeletePrefix(record Record, keyPrefix []byte) error
 
-	GetSequence(record Record, key []byte) (Sequence, error)
+	GetSequence(record Record, key []byte) (store.Sequence, error)
 
 	NewTransaction(update bool) RecorderTxn
 }
@@ -97,10 +92,8 @@ var ErrRecordNotDefined = errors.New("Record type used that was not included in 
 
 type recorderDB struct {
 	*badger.DB
+	store.Store
 	recPrefixes map[string][]byte
-	sequences   []*badger.Sequence
-	writeChan   chan *badger.Entry
-	doneChan    chan<- error
 }
 
 // New creates a RecorderDB
@@ -122,85 +115,16 @@ func New(store store.Store, records []Record) (RecorderDB, error) {
 		if len(nameBytes) != 3 {
 			return nil, fmt.Errorf("%w name: %v", ErrRecordNameLenNot3, name)
 		}
-		recPrefixes[name] = append(nameBytes, string(0)[0])
+		recPrefixes[name] = append(nameBytes, 0 /*string(0)[0]*/)
 	}
 
 	newItem := &recorderDB{
 		DB:          store.BadgerDB(),
+		Store:       store,
 		recPrefixes: recPrefixes,
-		writeChan:   make(chan *badger.Entry, 100),
 	}
-
-	go newItem.background()
 
 	return newItem, nil
-}
-
-func (r *recorderDB) Close(doneChan chan<- error) {
-	r.doneChan = doneChan
-	close(r.writeChan)
-}
-
-func (r *recorderDB) background() {
-	timer := time.NewTimer(time.Minute)
-	for {
-		select {
-		case entry, ok := <-r.writeChan:
-			if !ok {
-				r.close()
-				return
-			}
-			var err error
-			txn := r.DB.NewTransaction(true)
-			done := false
-			for !done {
-				err = txn.SetEntry(entry)
-				if err != nil {
-					if err == badger.ErrTxnTooBig {
-						txn.Commit()
-						txn = r.DB.NewTransaction(true)
-						continue
-					}
-					fmt.Println("record error writting in background")
-					break
-				}
-				select {
-				case entry, ok = <-r.writeChan:
-					if !ok {
-						done = true
-					}
-				default:
-					done = true
-				}
-			}
-			if err != nil {
-				txn.Discard()
-			} else {
-				txn.Commit()
-			}
-			if !ok {
-				r.close()
-				return
-			}
-		case <-timer.C:
-			err := r.RunValueLogGC(0.5)
-			if err == nil {
-				timer.Reset(5 * time.Minute)
-			} else if err == badger.ErrNoRewrite {
-				timer.Reset(time.Hour)
-			} else {
-				fmt.Println("badgerDB GC Unknown error:", err)
-				timer.Reset(time.Hour)
-			}
-		}
-	}
-}
-
-func (r *recorderDB) close() {
-	for _, v := range r.sequences {
-		v.Release()
-	}
-	r.doneChan <- r.DB.Close()
 }
 
 func (r *recorderDB) Write(record Record) error {
@@ -250,7 +174,7 @@ func (r *recorderDB) WriteBuffered(record Record) error {
 	if ttl > 0 {
 		entry.WithTTL(ttl)
 	}
-	r.writeChan <- entry
+	r.Store.WriteBuffered(entry)
 	return nil
 }
 
@@ -353,7 +277,7 @@ func (r *recorderDB) DeletePrefix(record Record, keyPrefix []byte) error {
 	return r.DB.DropPrefix(append(prefix, keyPrefix...))
 }
 
-func (r *recorderDB) GetSequence(record Record, key []byte) (Sequence, error) {
+func (r *recorderDB) GetSequence(record Record, key []byte) (store.Sequence, error) {
 	name := record.Name()
 	prefix, ok := r.recPrefixes[name]
 	if !ok {
@@ -364,11 +288,10 @@ func (r *recorderDB) GetSequence(record Record, key []byte) (Sequence, error) {
 		return nil, errors.New("Failed to copy exactly 4 bytes of prefix for GetSequence")
 	}
 	seqPrefix[3] = 's'
-	sequence, err := r.DB.GetSequence(append(seqPrefix, key...), 100)
+	sequence, err := r.Store.GetSequence(append(seqPrefix, key...))
 	if err != nil {
 		return nil, err
 	}
-	r.sequences = append(r.sequences, sequence)
 	return sequence, nil
 }
 

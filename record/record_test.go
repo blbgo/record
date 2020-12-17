@@ -62,12 +62,6 @@ func TestOpenAndCloseDb(t *testing.T) {
 	// delete it
 	a.NoError(db.Delete(tr2))
 	a.Error(db.Read(tr2))
-
-	dc, ok := db.(general.DelayCloser)
-	a.True(ok)
-	doneChan := make(chan error)
-	dc.Close(doneChan)
-	a.NoError(<-doneChan)
 }
 
 func TestSequence(t *testing.T) {
