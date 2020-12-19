@@ -29,6 +29,10 @@ type Item interface {
 	// item has children. ErrMustDeleteChildrenFirst will be returned if there are any children
 	Delete() error
 
+	// Clone makes a full copy of an item, this is useful for saving an item for use outside of a
+	// RangeChildren callback or other cases where the buffers inside an item are being reused.
+	Clone() Item
+
 	// CreateChild creates a child of this item
 	CreateChild(key []byte, value []byte, indexes [][]byte) (Item, error)
 	// QuickChild creates a new child with no indexes and does not return it
@@ -37,7 +41,9 @@ type Item interface {
 	ReadChild(key []byte) (Item, error)
 	// ReadChildByIndex reads a child by one of it's indexes
 	ReadChildByIndex(index []byte) (Item, error)
-	// RangeChildren reads children calling cb for each one
+	// RangeChildren reads children calling cb for each one, the item provided to the callback is
+	// only valid during the callback as it is reused for the next callback. If an item is needed
+	// outsode the callback use Clone.
 	RangeChildren(start []byte, prefixCount int, reverse bool, cb func(item Item) bool) error
 	// RangeChildKeys reads the keys of children calling cb for each one
 	RangeChildKeys(start []byte, prefixCount int, reverse bool, cb func(key []byte) bool) error
@@ -240,6 +246,22 @@ func (r *item) Delete() error {
 	})
 }
 
+func (r *item) Clone() Item {
+	clone := &item{
+		Store:   r.Store,
+		depth:   r.depth,
+		fullKey: append([]byte{}, r.fullKey...),
+		indexes: make([][]byte, 0, len(r.indexes)),
+		value:   append([]byte{}, r.value...),
+	}
+	clone.baseKey = clone.fullKey[:len(r.baseKey)]
+	clone.key = clone.fullKey[len(r.baseKey)+1:]
+	for _, v := range r.indexes {
+		r.indexes = append(r.indexes, append([]byte{}, v...))
+	}
+	return clone
+}
+
 func (r *item) CreateChild(key []byte, value []byte, indexes [][]byte) (Item, error) {
 	lenKey := len(key)
 	if lenKey < 2 || lenKey > 255 {
@@ -423,15 +445,15 @@ func (r *item) RangeChildren(
 		itOps.Reverse = reverse
 		it := txn.NewIterator(itOps)
 		defer it.Close()
+		childItem := &item{
+			Store: r.Store,
+			depth: r.depth + 1,
+		}
 		for it.Seek(fullStart); it.Valid(); it.Next() {
-			itemKey := it.Item().KeyCopy(nil)
-			childItem := &item{
-				Store:   r.Store,
-				depth:   r.depth + 1,
-				fullKey: itemKey,
-				baseKey: itemKey[:preKeyLen-1],
-				key:     itemKey[preKeyLen:],
-			}
+			itemKey := it.Item().Key()
+			childItem.fullKey = itemKey
+			childItem.baseKey = itemKey[:preKeyLen-1]
+			childItem.key = itemKey[preKeyLen:]
 			err := childItem.loadFromItem(it.Item())
 			if err != nil {
 				return err
