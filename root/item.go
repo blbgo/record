@@ -351,9 +351,6 @@ func (r *item) ReadChild(key []byte) (Item, error) {
 	err := r.Store.BadgerDB().View(func(txn *badger.Txn) error {
 		dbItem, err := txn.Get(fullKey)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
-				return ErrItemNotFound
-			}
 			return err
 		}
 		childItem = &item{
@@ -388,9 +385,6 @@ func (r *item) ReadChildByIndex(index []byte) (Item, error) {
 	err := r.Store.BadgerDB().View(func(txn *badger.Txn) error {
 		dbItem, err := txn.Get(indexKey)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
-				return ErrItemNotFound
-			}
 			return err
 		}
 		fullKey := append(baseKey, mainKeyPrefix)
