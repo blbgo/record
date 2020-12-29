@@ -20,7 +20,7 @@ func TestCreate(t *testing.T) {
 	theRoot := root.New(store)
 	a.NotNil(theRoot)
 
-	theRootLog, err := New(theRoot)
+	theRootLog, _, err := New(theRoot)
 	a.NoError(err)
 	a.NotNil(theRootLog)
 
