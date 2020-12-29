@@ -30,7 +30,15 @@ func (r *rootState) Save(name string, state interface{}) error {
 	if err != nil {
 		return err
 	}
-	return r.Item.QuickChild([]byte(name), value)
+	key := []byte(name)
+	item, err := r.Item.ReadChild(key)
+	if err == root.ErrItemNotFound {
+		return r.Item.QuickChild(key, value)
+	}
+	if err != nil {
+		return err
+	}
+	return item.UpdateValue(value)
 }
 
 func (r *rootState) Retrieve(name string, state interface{}) error {
