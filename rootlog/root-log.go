@@ -52,15 +52,16 @@ type rootLog struct {
 }
 
 // New creates a RootLog
-func New(rootDB root.Root) (RootLog, error) {
+func New(rootDB root.Root) (RootLog, general.LoggerFactory, error) {
 	item, err := rootDB.RootItem(
 		"github.com/blbgo/record/rootlog",
 		"github.com/blbgo/record/rootlog root item",
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &rootLog{rootLogItem: item}, nil
+	r := &rootLog{rootLogItem: item}
+	return r, r, nil
 
 }
 
