@@ -44,6 +44,9 @@ func (r *rootState) Save(name string, state interface{}) error {
 func (r *rootState) Retrieve(name string, state interface{}) error {
 	item, err := r.Item.ReadChild([]byte(name))
 	if err != nil {
+		if err == root.ErrItemNotFound {
+			return nil
+		}
 		return err
 	}
 	return json.Unmarshal(item.Value(), state)

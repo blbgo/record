@@ -206,33 +206,24 @@ func (r *item) DeleteChildren() error {
 	if r.depth < 0 {
 		return ErrChangeRoot
 	}
-	childrenPrefix := make([]byte, 0, len(r.fullKey))
-	childrenPrefix = append(childrenPrefix, r.baseKey...)
-	childrenPrefix = append(childrenPrefix, byte(len(r.key)))
-	childrenPrefix = append(childrenPrefix, r.key...)
-	return r.Store.BadgerDB().DropPrefix(childrenPrefix)
+	var err error
+	r.RangeChildren(nil, 0, false, func(item Item) bool {
+		err = item.DeleteChildren()
+		if err != nil {
+			return false
+		}
+		err = item.Delete()
+		return err == nil
+	})
+	return err
 }
 
 func (r *item) Delete() error {
-	if r.depth < 0 {
-		return ErrChangeRoot
+	err := r.DeleteChildren()
+	if err != nil {
+		return err
 	}
 	return r.Store.BadgerDB().Update(func(txn *badger.Txn) error {
-		childPrefix := make([]byte, 0, len(r.fullKey))
-		childPrefix = append(childPrefix, r.baseKey...)
-		childPrefix = append(childPrefix, byte(len(r.key)))
-		childPrefix = append(childPrefix, r.key...)
-		itOps := badger.DefaultIteratorOptions
-		itOps.Prefix = childPrefix
-		itOps.PrefetchValues = false
-		it := txn.NewIterator(itOps)
-		it.Rewind()
-		childFound := it.Valid()
-		it.Close()
-		if childFound {
-			return ErrMustDeleteChildrenFirst
-		}
-
 		for _, v := range r.indexes {
 			indexKey := make([]byte, 0, len(r.baseKey)+1+len(v))
 			indexKey = append(indexKey, r.baseKey...)

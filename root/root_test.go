@@ -68,11 +68,6 @@ func TestCreate(t *testing.T) {
 	a.NoError(err)
 
 	err = item.Delete()
-	a.Equal(ErrMustDeleteChildrenFirst, err)
-
-	err = item.DeleteChildren()
-	a.NoError(err)
-	err = item.Delete()
 	a.NoError(err)
 	item, err = testRoot.ReadChildByIndex([]byte("test index"))
 	a.Equal(ErrItemNotFound, err)

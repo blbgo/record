@@ -89,10 +89,6 @@ func (r *rootLog) Delete(created time.Time) error {
 	if err != nil {
 		return err
 	}
-	err = itemLog.DeleteChildren()
-	if err != nil {
-		return err
-	}
 	return itemLog.Delete()
 }
 

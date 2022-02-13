@@ -76,9 +76,6 @@ var ErrPrefixCountToLong = errors.New("prefixCount more than start key length")
 // ErrChangeRoot root item may not be changed
 var ErrChangeRoot = errors.New("Root item may not be changed")
 
-// ErrMustDeleteChildrenFirst must delete children first
-var ErrMustDeleteChildrenFirst = errors.New("Must delete children first")
-
 const rootDepth = -1
 const mainKeyPrefix = 0
 const indexKeyPrefix = 1
