@@ -76,6 +76,11 @@ var ErrPrefixCountToLong = errors.New("prefixCount more than start key length")
 // ErrChangeRoot root item may not be changed
 var ErrChangeRoot = errors.New("Root item may not be changed")
 
+// ErrInvalidOnExpiring expiring item must be kept simple
+var ErrInvalidOnExpiring = errors.New(
+	"Item with expiresAt may not have childeren, indexes, or be updated",
+)
+
 const rootDepth = -1
 const mainKeyPrefix = 0
 const indexKeyPrefix = 1

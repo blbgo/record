@@ -2,6 +2,7 @@ package root
 
 import (
 	"testing"
+	"time"
 
 	"github.com/blbgo/general"
 	"github.com/blbgo/record/store"
@@ -39,6 +40,28 @@ func TestCreate(t *testing.T) {
 	err = item.Delete()
 	a.NoError(err)
 
+	// ******** CreateChildExpiresAt
+	err = testRoot.CreateChildExpiresAt(
+		[]byte("expires child"),
+		[]byte("expires value"),
+		uint64(time.Now().Add(time.Second).Unix()),
+	)
+	a.NoError(err)
+
+	item, err = testRoot.ReadChild([]byte("expires child"))
+	a.NoError(err)
+	a.NotNil(item)
+	a.Equal(0, item.IndexCount())
+	a.Equal("expires child", string(item.CopyKey(nil)))
+	a.Equal("expires value", string(item.Value()))
+
+	err = item.UpdateValue([]byte("expires value update"))
+	a.Equal(ErrInvalidOnExpiring, err)
+
+	time.Sleep(time.Second * 2)
+	_, err = testRoot.ReadChild([]byte("expires child"))
+	a.Equal(ErrItemNotFound, err)
+
 	// ******** CreateChild
 	item, err = testRoot.CreateChild(
 		[]byte("test child"),
@@ -62,6 +85,7 @@ func TestCreate(t *testing.T) {
 		checkItem(a, item)
 		return true
 	})
+	a.NoError(err)
 	a.Equal(1, calls)
 
 	err = item.QuickChild([]byte("child of child"), []byte("A child of the child of testRoot"))
@@ -69,7 +93,7 @@ func TestCreate(t *testing.T) {
 
 	err = item.Delete()
 	a.NoError(err)
-	item, err = testRoot.ReadChildByIndex([]byte("test index"))
+	_, err = testRoot.ReadChildByIndex([]byte("test index"))
 	a.Equal(ErrItemNotFound, err)
 
 	c, ok := store.(general.DelayCloser)

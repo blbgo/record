@@ -37,6 +37,9 @@ type Item interface {
 	CreateChild(key []byte, value []byte, indexes [][]byte) (Item, error)
 	// QuickChild creates a new child with no indexes and does not return it
 	QuickChild(key []byte, value []byte) error
+	// CreateChildExpiresAt creates a child of this item that will expire at the specified unix
+	// time. Children that expire may not have indexes, children, or be updated.
+	CreateChildExpiresAt(key []byte, value []byte, expiresAt uint64) error
 	// ReadChild reads a child of this item
 	ReadChild(key []byte) (Item, error)
 	// ReadChildByIndex reads a child by one of it's indexes
@@ -70,8 +73,9 @@ type item struct {
 	baseKey []byte
 	key     []byte
 	// value will be just the user value without flags or indexes
-	indexes [][]byte
-	value   []byte
+	indexes   [][]byte
+	value     []byte
+	expiresAt uint64
 }
 
 func (r *item) CopyKey(buffer []byte) []byte {
@@ -96,6 +100,9 @@ func (r *item) Value() []byte {
 func (r *item) Update(itemUpdate *ItemUpdate) error {
 	if r.depth < 1 {
 		return ErrChangeRoot
+	}
+	if r.expiresAt != 0 {
+		return ErrInvalidOnExpiring
 	}
 	if len(r.indexes)+len(itemUpdate.IndexAdditions) > 255 {
 		return ErrTooManyIndexes
@@ -186,6 +193,9 @@ func (r *item) UpdateValue(value []byte) error {
 	if r.depth < 1 {
 		return ErrChangeRoot
 	}
+	if r.expiresAt != 0 {
+		return ErrInvalidOnExpiring
+	}
 	oldValue := r.value
 	r.value = value
 	err := r.Store.BadgerDB().Update(func(txn *badger.Txn) error {
@@ -254,6 +264,9 @@ func (r *item) Clone() Item {
 }
 
 func (r *item) CreateChild(key []byte, value []byte, indexes [][]byte) (Item, error) {
+	if r.expiresAt != 0 {
+		return nil, ErrInvalidOnExpiring
+	}
 	lenKey := len(key)
 	if lenKey < 2 || lenKey > 255 {
 		return nil, ErrKeyInvalid
@@ -300,6 +313,9 @@ func (r *item) QuickChild(key []byte, value []byte) error {
 	if r.depth < 0 {
 		return ErrChangeRoot
 	}
+	if r.expiresAt != 0 {
+		return ErrInvalidOnExpiring
+	}
 	lenKey := len(key)
 	if lenKey < 2 || lenKey > 255 {
 		return ErrKeyInvalid
@@ -320,6 +336,39 @@ func (r *item) QuickChild(key []byte, value []byte) error {
 			return ErrAlreadyExists
 		}
 		return txn.Set(fullKey, value)
+	})
+}
+
+func (r *item) CreateChildExpiresAt(key []byte, value []byte, expiresAt uint64) error {
+	if r.depth < 0 {
+		return ErrChangeRoot
+	}
+	if r.expiresAt != 0 {
+		return ErrInvalidOnExpiring
+	}
+	lenKey := len(key)
+	if lenKey < 2 || lenKey > 255 {
+		return ErrKeyInvalid
+	}
+
+	fullKey := make([]byte, 0, len(r.fullKey)+1+lenKey)
+	fullKey = append(fullKey, r.baseKey...)
+	fullKey = append(fullKey, byte(len(r.key)))
+	fullKey = append(fullKey, r.key...)
+	fullKey = append(fullKey, mainKeyPrefix)
+	fullKey = append(fullKey, key...)
+	return r.Store.BadgerDB().Update(func(txn *badger.Txn) error {
+		_, err := txn.Get(fullKey)
+		if err != badger.ErrKeyNotFound {
+			if err != nil {
+				return err
+			}
+			return ErrAlreadyExists
+		}
+
+		newEntry := badger.NewEntry(fullKey, value)
+		newEntry.ExpiresAt = expiresAt
+		return txn.SetEntry(newEntry)
 	})
 }
 
@@ -345,9 +394,10 @@ func (r *item) ReadChild(key []byte) (Item, error) {
 			return err
 		}
 		childItem = &item{
-			fullKey: fullKey,
-			baseKey: fullKey[:preKeyLen-1],
-			key:     fullKey[preKeyLen:],
+			fullKey:   fullKey,
+			baseKey:   fullKey[:preKeyLen-1],
+			key:       fullKey[preKeyLen:],
+			expiresAt: dbItem.ExpiresAt(),
 		}
 		return childItem.loadFromItem(dbItem)
 	})
@@ -394,9 +444,10 @@ func (r *item) ReadChildByIndex(index []byte) (Item, error) {
 			return err
 		}
 		childItem = &item{
-			fullKey: fullKey,
-			baseKey: fullKey[:len(baseKey)],
-			key:     fullKey[preKeyLen:],
+			fullKey:   fullKey,
+			baseKey:   fullKey[:len(baseKey)],
+			key:       fullKey[preKeyLen:],
+			expiresAt: dbItem.ExpiresAt(),
 		}
 		return childItem.loadFromItem(dbItem)
 	})
@@ -441,11 +492,13 @@ func (r *item) RangeChildren(
 			depth: r.depth + 1,
 		}
 		for it.Seek(fullStart); it.Valid(); it.Next() {
-			itemKey := it.Item().Key()
+			dbItem := it.Item()
+			itemKey := dbItem.Key()
 			childItem.fullKey = itemKey
 			childItem.baseKey = itemKey[:preKeyLen-1]
 			childItem.key = itemKey[preKeyLen:]
-			err := childItem.loadFromItem(it.Item())
+			childItem.expiresAt = dbItem.ExpiresAt()
+			err := childItem.loadFromItem(dbItem)
 			if err != nil {
 				return err
 			}
