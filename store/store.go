@@ -78,7 +78,7 @@ func (r *store) background() {
 						txn = r.DB.NewTransaction(true)
 						continue
 					}
-					fmt.Println("record error writting in background")
+					fmt.Println("record error writing in background")
 					break
 				}
 				select {
@@ -102,6 +102,7 @@ func (r *store) background() {
 		case <-timer.C:
 			err := r.RunValueLogGC(0.5)
 			if err == nil {
+				fmt.Println("badgerDB RunValueLogGC returned nil error indicating some garbage was collected")
 				timer.Reset(5 * time.Minute)
 			} else if err == badger.ErrNoRewrite {
 				timer.Reset(time.Hour)
